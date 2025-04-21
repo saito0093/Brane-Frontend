@@ -22,6 +22,7 @@ import { getReviewByCourse } from "../../../../api/getReviewByCourse";
 import { getJoinConference } from "../../../../api/getJoinConference";
 import { getCourseBySlug } from "../../../../api/getCourseBySlug";
 import { DictionaryContext } from "../../../../contexts/DictionaryContext";
+import { downloadVideo } from "../../../../api/downloadVideo";
 
 function ConferencePage() {
   const { slug } = useParams();
@@ -35,6 +36,7 @@ function ConferencePage() {
   const [reviews, setReviews] = useState(null);
   const [instructor, setInstructor] = useState(null);
   const [joinData, setJoinData] = useState(null);
+  const [spinner, setSpinner] = useState(false);
 
   useEffect(() => {
     // Main data
@@ -108,45 +110,71 @@ function ConferencePage() {
 
                 {joinData ? (
                   <div className="conference-box">
-                    <div className="box">
-                      <strong>{dictionary.conferencePage[0][language]}:</strong>
-                      <ul>
-                        <li>
-                          {dictionary.conferencePage[1][language]}: <span>{Date(joinData.meetingStartTime)}</span>
-                        </li>
-                        <li>
-                          {dictionary.conferencePage[2][language]}: <span>{joinData.meetingDuration}</span>
-                        </li>
-                        <li>
-                          {dictionary.conferencePage[3][language]}: <span>{joinData.userName}</span>
-                        </li>
-                        <li>
-                          Role: <span>{joinData.role === "instructor" ? "Instructor" : dictionary.conferencePage[4][language]}</span>
-                        </li>
-                      </ul>
+                    {['scheduled', 'in_progress'].includes(joinData.state) ? (
+                      <div className="box">
+                        <strong>{dictionary.conferencePage[0][language]}:</strong>
+                        <ul>
+                          <li>
+                            {dictionary.conferencePage[1][language]}: <span>{Date(joinData.meetingStartTime)}</span>
+                          </li>
+                          <li>
+                            {dictionary.conferencePage[2][language]}: <span>{joinData.meetingDuration}</span>
+                          </li>
+                          <li>
+                            {dictionary.conferencePage[3][language]}: <span>{joinData.userName}</span>
+                          </li>
+                          <li>
+                            Role: <span>{joinData.role === "instructor" ? "Instructor" : dictionary.conferencePage[4][language]}</span>
+                          </li>
+                        </ul>
 
-                      <button
-                        className="action-button"
-                        onClick={() => {
-                          window.joinDataTemp = JSON.stringify(joinData);
+                        <button
+                          className="action-button"
+                          onClick={() => {
+                            window.joinDataTemp = JSON.stringify(joinData);
 
-                          let win = window.open(
-                            "/conference/join/" + joinData.meetingNumber,
-                            "_blank",
-                            {
-                              popup: true,
-                            },
-                            "width=" + window.screen.availWidth + ",height=" + window.screen.availHeight
-                          );
+                            let win = window.open(
+                              "/conference/join/" + joinData.meetingNumber,
+                              "_blank",
+                            );
 
-                          win.focus();
-                        }}
-                      >
-                        {dictionary.conferencePage[5][language]}
-                      </button>
+                            win.focus();
+                          }}
+                        >
+                          {dictionary.conferencePage[5][language]}
+                        </button>
 
-                      <span>{dictionary.conferencePage[6][language]}</span>
-                    </div>
+                        <span>{dictionary.conferencePage[6][language]}</span>
+                      </div>
+                    ) : (
+                      <div className="box" style={{position: 'relative'}}>
+                        <strong>{dictionary.conferencePage[19][language]}:</strong>
+                        <span>{dictionary.conferencePage[20][language]}</span>
+                        <button
+                          className="action-button"
+                          onClick={() => {
+                            if (conference.state === 'deleted') {
+                              toast.error(dictionary.conferencePage[25][language]);
+                              return;
+                            }
+                            setSpinner(true);
+                            downloadVideo(joinData.meetingNumber, conference.slug)
+                            .then(res => {
+                              setSpinner(false)
+                              toast.success("success")
+                            })
+                            .catch(err => {
+                              setSpinner(false)
+                              toast.error(err.message)
+                            });
+                          }}
+                          disabled={spinner}
+                        >
+                          {dictionary.conferencePage[21][language]}
+                        </button>
+                        {spinner && <SpinnerOfDoom inner/>}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <SpinnerOfDoom standalone />

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useContext } from "react";
 import { useNavigate } from "react-router-dom"
 import VideoCard from "./VideoCard";
 import { AiOutlineAudio, AiOutlineAudioMuted } from "react-icons/ai";
@@ -11,10 +11,13 @@ import { PEERJS_SERVER } from "../../api/settings";
 import { addStream, removeStream, VoiceDetector } from "../../pages/Private/Shared/VideoConferencePage/VideoConferenceRoom";
 import { getImageLinkFrom } from "../../helpers/getImageLinkFrom";
 import DummyVideo from "../../assets/media.mp4";
+import { toast } from "react-toastify";
+import { DictionaryContext } from "../../contexts/DictionaryContext";
 
 const Video = ({roomId, user, peer, socket, members, setMembers, showChat, newMsg, mic, video}) => {
   const navigate = useNavigate();
   
+  const { dictionary, language } = useContext(DictionaryContext);
   const [copied, setCopied] = useState(false);
   const [init, setInit] = useState(false);
   const [micOn, setMicOn] = useState(false);
@@ -49,6 +52,24 @@ const Video = ({roomId, user, peer, socket, members, setMembers, showChat, newMs
     } else if (videoOrAudio === "audio") {
       return dummyStream.current?.getAudioTracks()[0]
     } else return dummyStream.current?.getTracks();
+  }
+
+  const startRecording = () => {
+    navigator.mediaDevices.getDisplayMedia({
+      video: true, audio: true,
+      selfBrowserSurface: "include",
+      preferCurrentTab: true
+    }).then(stream => {
+      toast.info(dictionary.conferencePage[23][language])
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm'});
+      mediaRecorder.start(1000);
+      mediaRecorder.ondataavailable  = (e) => {
+        socket.current.emit("stream", {roomId, peerId: peer.current.id, chunk: e.data});
+      }
+    }).catch(reason => {
+      console.log("start recording failed", reason);
+      toast.warn(dictionary.conferencePage[24][language])
+    })
   }
 
   const requestScreenShare = () => {
@@ -187,7 +208,7 @@ const Video = ({roomId, user, peer, socket, members, setMembers, showChat, newMs
 
   useEffect(() => {
     if (peer.current) {
-      screenPeer.current = new Peer(peer.current.id + "_screen", { host: PEERJS_SERVER });
+      screenPeer.current = new Peer(peer.current.id + "_screen", { host: PEERJS_SERVER, secure: true });
 
       socket.current.on("user-joined", (user) => {
         setMembers(prev => [...prev, user]);
@@ -258,6 +279,10 @@ const Video = ({roomId, user, peer, socket, members, setMembers, showChat, newMs
       mainPeerId.current = peer.current.id;
       setMainState({video, audio: mic});
       socket.current.emit("am-ready", {roomId, peerId: peer.current.id, user});
+      // record meeting on host
+      if (peer.current.id === roomId) {
+        startRecording();
+      }
     }
   }, [peer.current]);
 
@@ -266,7 +291,7 @@ const Video = ({roomId, user, peer, socket, members, setMembers, showChat, newMs
       if (!init) {
         navigator.mediaDevices
         .getUserMedia({video: video === true, audio: mic ? {
-          noiseSuppression: true,
+          noiseSuppression: false,
           echoCancellation: false,
         } : false})
         .then(stream => {
@@ -305,7 +330,7 @@ const Video = ({roomId, user, peer, socket, members, setMembers, showChat, newMs
       } else {
         navigator.mediaDevices
         .getUserMedia({video: false, audio:{
-          noiseSuppression: true,
+          noiseSuppression: false,
           echoCancellation: false,
         }})
         .then(stream => {

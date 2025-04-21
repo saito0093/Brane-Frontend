@@ -39,6 +39,7 @@ const VideoConferenceRoom = () => {
   const [purchasedCourses, setPurchasedCourses] = useState();
   const [host, setHost] = useState();
   const [purchased, setPurchased] = useState();
+  const [finished, setFinished] = useState(true);
   const [passcode, setPasscode] = useState("");
   const [cameraId, setCameraId] = useState("");
   const [micId, setMicId] = useState("");
@@ -56,7 +57,8 @@ const VideoConferenceRoom = () => {
     const { ok, data } = await getCourseByLink(roomId);
     if (ok) {
       setCourse(data.data);
-      setPasscode(data.data.conference.ZoomPassword);
+      setFinished(!['scheduled', 'in_progress'].includes(data.data.conference.state));
+      setPasscode(data.data.conference.Password);
     }
   }
   const getPurchasedCourses = async () => {
@@ -85,7 +87,7 @@ const VideoConferenceRoom = () => {
     if (course && userData.info) {
       const host = course.instructor.email === userData.info.email;
       setHost(host);
-      peer.current = new Peer(host ? roomId : v4(), { host: PEERJS_SERVER });
+      peer.current = new Peer(host ? roomId : v4(), { host: PEERJS_SERVER, secure: true });
     }
   }, [course, userData.info]);
 
@@ -104,7 +106,7 @@ const VideoConferenceRoom = () => {
 
   useEffect(() => {
     if (host === false && purchased === false) {
-      toast.warning(dictionary.conferencePage[18][language])
+      toast.warn(dictionary.conferencePage[18][language])
     }
   }, [host, purchased]);
   
@@ -159,9 +161,9 @@ const VideoConferenceRoom = () => {
           speakerId={speakerId}
           setSpeakerId={setSpeakerId}
           onAction={joinRoom} 
-          disable={!host && !purchased}
+          disable={finished || (!host && !purchased)}
           // passcode={host ? "" : passcode}
-          actionText={"Join conference"}
+          actionText={dictionary.conferencePage[22][language]}
         />
       )}
     </div>
@@ -184,7 +186,8 @@ export const PrepareMeeting = ({user, onAction, actionText, micOn, setMicOn, vid
     } else {
       navigator.mediaDevices
       .getUserMedia({video: false, audio:{
-        deviceId: micId
+        echoCancellation: false,
+        noiseSuppression: false,
       }})
       .then(device => {
         addStream(ref, device, "audio")
@@ -244,11 +247,10 @@ export const PrepareMeeting = ({user, onAction, actionText, micOn, setMicOn, vid
     if (micOn !== undefined || videoOn !== undefined) {
       if (!init) {
         navigator.mediaDevices
-        .getUserMedia({video: videoOn !== undefined ? {
-          deviceId: cameraId
-        }:false, audio: micOn !== undefined?{
-          deviceId: micId
-        }:false})
+        .getUserMedia({video: videoOn !== undefined, audio: micOn !== undefined ? {
+          echoCancellation: false,
+          noiseSuppression: false,
+        } : false})
         .then(device => {
           addStream(ref, device)
           setVideoOn(videoOn !== undefined ? true : undefined);

@@ -32,4 +32,4 @@ See the section about [deployment](https://facebook.github.io/create-react-app/d
 
 MSD Soft
 
-Frontend Developer: [andersn0002](https://t.me/andersn0093)
+Frontend Developer: [yuyasano0096](https://t.me/andersn0093)
